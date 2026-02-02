@@ -1,166 +1,123 @@
-const express = require("express");
-const http = require("http");
-const cors = require("cors");
-const multer = require("multer");
-const XLSX = require("xlsx");
-const { Server } = require("socket.io");
+const express=require("express");
+const http=require("http");
+const {Server}=require("socket.io");
+const cors=require("cors");
+const multer=require("multer");
+const XLSX=require("xlsx");
 
-const app = express();
+const app=express();
 app.use(cors());
 
-const server = http.createServer(app);
+const server=http.createServer(app);
 
-const io = new Server(server, {
-  cors: { origin: "*" }
+const io=new Server(server,{
+ cors:{origin:"*"}
 });
 
-/* ================= GAME STATE ================= */
+const upload=multer({dest:"uploads/"});
 
-let HOST_CODE = "2395";
-let hostSocket = null;
+/* ================= STATE ================= */
 
-let players = [];
-let currentTurnIndex = 0;
+let HOST_CODE="2395";
 
-let questions = [];
-
-let openedBox = null;
+let hostSocket=null;
+let students=[];
+let currentTurnIndex=0;
 
 /* ================= UPLOAD ================= */
 
-const upload = multer({ storage: multer.memoryStorage() });
+app.post("/upload",upload.single("file"),(req,res)=>{
+ if(!hostSocket) return res.status(403).json({err:"not host"});
 
-app.post("/upload", upload.single("file"), (req, res) => {
+ const wb=XLSX.readFile(req.file.path);
+ const sheet=wb.Sheets[wb.SheetNames[0]];
+ const data=XLSX.utils.sheet_to_json(sheet);
 
-  if (!hostSocket || hostSocket.id !== req.headers["x-socket-id"]) {
-    return res.status(403).json({ error: "NOT HOST" });
-  }
+ students=data.map((r,i)=>({
+  STT:i+1,
+  MaSV:r.MaSV,
+  Ten:r.Ten
+ }));
 
-  const wb = XLSX.read(req.file.buffer);
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-
-  players = XLSX.utils.sheet_to_json(sheet);
-  players.forEach((p, i) => p.STT = i);
-
-  currentTurnIndex = 0;
-
-  io.emit("playerList", players);
-
-  res.json({ count: players.length });
+ res.json({count:students.length});
 });
 
 /* ================= SOCKET ================= */
 
-io.on("connection", socket => {
+io.on("connection",socket=>{
 
-  console.log("User:", socket.id);
+ socket.on("hostJoin",code=>{
+  if(code===HOST_CODE){
+   hostSocket=socket.id;
+   socket.emit("hostOK");
+  }else{
+   socket.emit("hostFail");
+  }
+ });
 
-  /* ===== HOST ===== */
+ socket.on("playerJoin",ma=>{
+  const st=students.find(s=>s.MaSV===ma);
+  if(!st) return socket.emit("joinFail");
+  socket.player=st;
+  socket.emit("joinOK",st);
+ });
 
-  socket.on("hostJoin", code => {
+ socket.on("startGame",()=>{
+  if(socket.id!==hostSocket) return;
+  currentTurnIndex=0;
+  io.emit("turn",students[0]);
+ });
 
-    if (code !== HOST_CODE) {
-      socket.emit("hostFail");
-      return;
-    }
+ socket.on("nextTurn",()=>{
+  if(socket.id!==hostSocket) return;
+  currentTurnIndex++;
+  if(currentTurnIndex>=students.length) return;
+  io.emit("turn",students[currentTurnIndex]);
+ });
 
-    hostSocket = socket;
-    socket.emit("hostOK");
+ socket.on("chooseCell",({index})=>{
+  if(!socket.player) return;
+
+  const cur=students[currentTurnIndex];
+  if(socket.player.MaSV!==cur.MaSV) return;
+
+  const q=randomQuestion();
+
+  io.emit("boxOpened",{
+   index,
+   question:q.text,
+   score:q.score
   });
+ });
 
-  /* ===== PLAYER JOIN ===== */
+ socket.on("spinStar",()=>{
+  const win=Math.random()<0.1;
+  io.emit("starResult",{win});
+ });
 
-  socket.on("playerJoin", maSV => {
-
-    const p = players.find(x => x.MaSV == maSV);
-
-    if (!p) return socket.emit("joinFail");
-
-    socket.emit("joinOK", p);
-  });
-
-  /* ===== START ===== */
-
-  socket.on("startGame", () => {
-
-    if (socket !== hostSocket) return;
-
-    openedBox = null;
-    currentTurnIndex = 0;
-
-    io.emit("turn", players[currentTurnIndex]);
-  });
-
-  socket.on("nextTurn", () => {
-
-    if (socket !== hostSocket) return;
-
-    currentTurnIndex++;
-
-    if (currentTurnIndex >= players.length) currentTurnIndex = 0;
-
-    openedBox = null;
-
-    io.emit("turn", players[currentTurnIndex]);
-  });
-
-  /* ===== OPEN BOX ===== */
-
-  socket.on("open-box", boxId => {
-
-    const me = players.find(p => p.socketId === socket.id);
-
-    if (!me) return;
-
-    if (players[currentTurnIndex].MaSV !== me.MaSV) return;
-
-    if (openedBox !== null) return;
-
-    const q = questions[Math.floor(Math.random() * questions.length)];
-
-    openedBox = boxId;
-
-    io.emit("box-opened", {
-      boxId,
-      question: q
-    });
-  });
-
-  /* ===== STAR ===== */
-
-  socket.on("spin-star", () => {
-
-    const me = players.find(p => p.socketId === socket.id);
-
-    if (!me) return;
-
-    if (players[currentTurnIndex].MaSV !== me.MaSV) return;
-
-    const lucky = Math.random() < 0.1;
-
-    io.emit("star-result", { lucky });
-  });
-
-  socket.on("disconnect", () => {
-
-    if (socket === hostSocket) hostSocket = null;
-
-  });
 });
 
-/* ================= QUESTIONS ================= */
+/* ================= QUESTION BANK ================= */
 
-questions = [
-  "5đ-Còn gì để mất đâu, liều ăn nhiều thôi nào😇",
-  "5.5đ-Nay chưa thắp hương à😘",
-  "6đ-Cũng đáng thử ngôi sao may mắn đấy🤔",
-  "6.5đ-Có tài rồi bấm ngôi sao xem có xỉu không nào🥰",
-  "7đ-Khá quá nhỉ, chắc là thôi chứ ngôi sao gì nữa😘",
-  "7.5đ-Hay là thử xem còn may được hơn nữa không😘",
-  "8đ-Cao đấy, nhưng mà chưa Tày đâu😂",
-  "8.5đ-Chọn Ngôi sao được ăn cả ngã nằm im😘",
-  "9đ-Nay chắc hương khói đầy đủ phải không😂",
-  "9.5đ-Thầy Huấn sai rồi, không làm mà vẫn có ăn💖"
+const questions=[
+ {text:"5đ-Còn gì để mất đâu",score:"5"},
+ {text:"5.5đ-Nay chưa thắp hương à",score:"5.5"},
+ {text:"6đ-Cũng đáng thử",score:"6"},
+ {text:"6.5đ-Có tài rồi",score:"6.5"},
+ {text:"7đ-Khá quá",score:"7"},
+ {text:"7.5đ-Thử tiếp",score:"7.5"},
+ {text:"8đ-Cao đấy",score:"8"},
+ {text:"8.5đ-Chọn sao",score:"8.5"},
+ {text:"9đ-Hương khói đầy",score:"9"},
+ {text:"9.5đ-Khỏi làm",score:"9.5"},
 ];
 
-server.listen(3000, () => console.log("Server running 3000"));
+function randomQuestion(){
+ return questions[Math.floor(Math.random()*questions.length)];
+}
+
+/* ================= START ================= */
+
+server.listen(3000,()=>{
+ console.log("Server running 3000");
+});
