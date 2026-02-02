@@ -246,7 +246,18 @@ function uploadList(){
 </script>
 
 <!-- HOST PLAYER PANEL -->
-<div style="position:fixed;top:10px;left:10px;background:#fff;padding:10px">
+<div style="
+ position:fixed;
+ bottom:40px;
+ left:50%;
+ transform:translateX(-50%);
+ background:#fff;
+ padding:14px 22px;
+ border-radius:12px;
+ box-shadow:0 6px 20px rgba(0,0,0,.25);
+ z-index:5;
+ min-width:320px;
+">
 <h3>HOST</h3>
 <input id="hostCode" placeholder="Code">
 <button onclick="socket.emit('hostJoin',hostCode.value)">Host</button><br>
