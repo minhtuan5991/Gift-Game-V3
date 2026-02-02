@@ -18,8 +18,6 @@ h1{color:#f8312f;font-size:2.5em;margin-bottom:10px}
 .star-btn{width:90px;height:90px;background:url('star.png') center/contain no-repeat;border:none;margin-top:20px;cursor:pointer;display:none;animation:pulse 1.5s infinite}
 .star-btn.spin{animation:spin .8s linear}
 .star-btn.gray{filter:grayscale(100%) brightness(.7)}
-@keyframes pulse{0%{scale:1}50%{scale:1.15}100%{scale:1}}
-@keyframes spin{from{rotate:0deg}to{rotate:360deg}}
 .star-result{margin-top:15px;font-size:1.2em}
 </style>
 
@@ -43,56 +41,67 @@ h1{color:#f8312f;font-size:2.5em;margin-bottom:10px}
 </div>
 
 <audio id="bgMusic" src="bg-music.mp3" loop></audio>
-<audio id="openSound" src="open.png"></audio>
+<audio id="openSound" src="sound.mp3"></audio>
 <audio id="luckySound" src="lucky.mp3"></audio>
 <audio id="unluckySound" src="unlucky.mp3"></audio>
 
-<footer>♥ Chúc Bạn May Mắn ♥</footer>
+<audio id="score5" src="score5.mp3"></audio>
+<audio id="score55" src="score55.mp3"></audio>
+<audio id="score6" src="score6.mp3"></audio>
+<audio id="score65" src="score65.mp3"></audio>
+<audio id="score7" src="score7.mp3"></audio>
+<audio id="score75" src="score75.mp3"></audio>
+<audio id="score8" src="score8.mp3"></audio>
+<audio id="score85" src="score85.mp3"></audio>
+<audio id="score9" src="score9.mp3"></audio>
+<audio id="score95" src="score95.mp3"></audio>
 
 <script>
-/* ================= SOCKET ================= */
 const socket = io("https://gift-game-v3.onrender.com");
 
-let me=null;
-let currentTurn=null;
+let me=null,currentTurn=null;
 
-/* ================= MUSIC ================= */
+/* ===== MUSIC ===== */
 const bgMusic=document.getElementById("bgMusic");
-const musicToggle=document.getElementById("musicToggle");
 let musicEnabled=true;
 bgMusic.volume=0.3;
 
-document.addEventListener("click",()=>{if(bgMusic.paused&&musicEnabled)bgMusic.play()},{once:true});
+function bgLow(){ if(musicEnabled) bgMusic.volume=0.09 }
+function bgNormal(){ if(musicEnabled) bgMusic.volume=0.3 }
 
-musicToggle.onclick=()=>{
- musicEnabled=!musicEnabled;
- if(musicEnabled){bgMusic.play();musicToggle.textContent="🔊 Nhạc: ON"}
- else{bgMusic.pause();musicToggle.textContent="🔇 Nhạc: OFF"}
+document.addEventListener("click",()=>{ if(bgMusic.paused&&musicEnabled) bgMusic.play() },{once:true});
+
+/* ===== SCORE MAP ===== */
+function extractScore(t){
+ const m=t.match(/(\d+(?:\.\d+)?)/);
+ return m?m[1]:null;
+}
+
+const scoreMap={
+ "5":"score5","5.5":"score55","6":"score6","6.5":"score65",
+ "7":"score7","7.5":"score75","8":"score8","8.5":"score85",
+ "9":"score9","9.5":"score95"
 };
 
-/* ================= QUESTIONS ================= */
-const questions=[
-"5đ-Còn gì để mất đâu, liều ăn nhiều thôi nào😇",
-"6đ-Cũng đáng thử ngôi sao may mắn đấy🤔",
-"7đ-Khá quá nhỉ, chắc là thôi chứ ngôi sao gì nữa😘",
-"8đ-Cao đấy, nhưng mà chưa Tày đâu😂",
-"9đ-Nay chắc hương khói đầy đủ phải không😂"
-];
+function stopScoreSounds(){
+ Object.values(scoreMap).forEach(id=>{
+  const a=document.getElementById(id);
+  if(a){a.pause();a.currentTime=0;}
+ });
+}
 
-const popup=document.getElementById("popup");
-const questionText=document.getElementById("questionText");
-const boxContainer=document.getElementById("boxContainer");
-const starBtn=document.getElementById("starBtn");
-const starResult=document.getElementById("starResult");
+function playScoreSound(score){
+ stopScoreSounds();
+ const a=document.getElementById(scoreMap[score]);
+ if(a){a.currentTime=0;a.play();}
+}
 
-const luckySound=document.getElementById("luckySound");
-const unluckySound=document.getElementById("unluckySound");
+function stopStarSounds(){
+ luckySound.pause(); unluckySound.pause();
+ luckySound.currentTime=0; unluckySound.currentTime=0;
+}
 
-const closeImg="close.png";
-const openImg="open.png";
-let currentOpenedBox=null;
-
-/* ================= POPUP ================= */
+/* ===== POPUP ===== */
 function showPopup(text){
  questionText.innerText=text;
  popup.style.display="block";
@@ -100,25 +109,24 @@ function showPopup(text){
  starBtn.disabled=false;
  starBtn.classList.remove("gray");
  starResult.innerText="";
+
+ const s=extractScore(text);
+ if(s) playScoreSound(s);
+
+ stopStarSounds();
+ bgLow();
 }
 
 function closePopup(){
  popup.style.display="none";
- if(currentOpenedBox){
-  currentOpenedBox.style.backgroundImage=`url(${closeImg})`;
-  currentOpenedBox=null;
- }
+ stopStarSounds();
+ stopScoreSounds();
+ bgNormal();
 }
 
-/* ================= STAR ================= */
+/* ===== STAR ===== */
 starBtn.onclick=()=>{
-
- if(!me || !currentTurn) return;
-
- if(me.STT!==currentTurn.STT){
-   alert("Chưa tới lượt bạn!");
-   return;
- }
+ if(me?.STT!==currentTurn?.STT) return;
 
  starBtn.disabled=true;
  starBtn.classList.add("spin");
@@ -129,102 +137,39 @@ starBtn.onclick=()=>{
   starBtn.classList.remove("spin");
 
   if(lucky){
-    starResult.innerText="😄 10 ĐIỂM - Các cụ gánh còng lưng";
+    starResult.innerText="😄 10 ĐIỂM";
     luckySound.play();
-  } else {
-    starResult.innerText="😭 5đ - Thì phải, phải gì ạ";
+  }else{
+    starResult.innerText="😭 5đ";
     unluckySound.play();
     starBtn.classList.add("gray");
   }
  },800);
 };
 
-/* ================= BOX ================= */
+/* ===== BOX ===== */
 const boxes=[];
 for(let i=0;i<6;i++){
- const box=document.createElement("div");
- box.className="box";
- box.style.backgroundImage=`url(${closeImg})`;
-
- box.onclick=()=>{
-
-  if(!me||!currentTurn) return;
-
-  if(me.STT!==currentTurn.STT){
-    alert("Chưa tới lượt bạn!");
-    return;
-  }
-
+ const b=document.createElement("div");
+ b.className="box";
+ b.style.backgroundImage="url(close.png)";
+ b.onclick=()=>{
+  if(me?.STT!==currentTurn?.STT) return alert("Chưa tới lượt!");
   socket.emit("chooseCell",{index:i});
  };
-
- boxes.push(box);
- boxContainer.appendChild(box);
+ boxes.push(b);
+ boxContainer.appendChild(b);
 }
 
-/* ================= MULTIPLAYER ================= */
+/* ===== SOCKET EVENTS ===== */
+socket.on("joinOK",st=>me=st);
+socket.on("turn",st=>currentTurn=st);
 
-socket.on("joinOK",(st)=>{me=st;alert("Joined "+st.Ten);});
-socket.on("turn",(st)=>{
- currentTurn=st;
- document.getElementById("turn").innerText="Lượt: "+st.Ten;
+socket.on("cellChosen",d=>{
+ const q=questions[Math.floor(Math.random()*questions.length)];
+ showPopup(q);
 });
-
-socket.on("cellChosen",(d)=>{
- const i=d.index;
-
- if(currentOpenedBox&&currentOpenedBox!==boxes[i])
-   currentOpenedBox.style.backgroundImage=`url(${closeImg})`;
-
- const box=boxes[i];
- box.style.backgroundImage=`url(${openImg})`;
- currentOpenedBox=box;
-
- showPopup(questions[Math.floor(Math.random()*questions.length)]);
-});
-
-/* ================= HOST / PLAYER ================= */
-
-function hostLogin(){
- socket.emit("hostJoin",
- document.getElementById("hostCode").value);
-}
-
-function uploadList(){
- const f=document.getElementById("listFile").files[0];
- const fd=new FormData();
- fd.append("file",f);
-
- fetch("https://gift-game-v3.onrender.com/upload",{
-  method:"POST",
-  body:fd
- }).then(r=>r.json()).then(j=>alert("Uploaded "+j.count));
-}
-
-function join(){
- socket.emit("playerJoin",
- document.getElementById("maSV").value);
-}
 </script>
-
-<div style="position:fixed;top:10px;left:10px;background:#fff;padding:10px">
-<h3>HOST</h3>
-<input id="hostCode" placeholder="2395">
-<button onclick="hostLogin()">Host</button><br>
-
-<input type="file" id="listFile">
-<button onclick="uploadList()">Upload DS</button><br>
-
-<button onclick="socket.emit('startGame')">Start</button>
-<button onclick="socket.emit('nextTurn')">Next</button>
-
-<hr>
-
-<h3>PLAYER</h3>
-<input id="maSV" placeholder="MaSV">
-<button onclick="join()">Join</button>
-<div id="turn"></div>
-</div>
 
 </body>
 </html>
