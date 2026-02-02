@@ -193,9 +193,13 @@ socket.on("hostFail",()=>alert("Sai mã host"));
 
 const hostPanel=document.getElementById("hostPanel");
 
+const playerNameDiv=document.getElementById("playerName");
+
 socket.on("joinOK",st=>{
  me=st;
  hostPanel.style.display="none";
+
+ playerNameDiv.innerText=st.Ten+" ("+st.MaSV+")";
 });
 socket.on("joinFail",()=>alert("Sai mã"));
 
