@@ -24,7 +24,8 @@ let hostSocket=null;
 let students=[];
 let currentTurnIndex=0;
 
-let openedBox=null;   // khóa 1 lượt chỉ mở 1 hộp
+let openedBox=null;
+let starUsed=false;
 
 /* ================= UPLOAD ================= */
 
@@ -43,8 +44,13 @@ app.post("/upload",upload.single("file"),(req,res)=>{
 
  currentTurnIndex=0;
  openedBox=null;
+ starUsed=false;
 
- io.emit("sync");
+ io.emit("syncState",{
+  currentTurn:students[0]||null,
+  openedBox:null,
+  starUsed:false
+ });
 
  res.json({count:students.length});
 });
@@ -84,13 +90,18 @@ io.on("connection",socket=>{
  /* ===== START GAME ===== */
  socket.on("startGame",()=>{
   if(socket.id!==hostSocket) return;
-
-  if(students.length===0) return;
+  if(!students.length) return;
 
   currentTurnIndex=0;
   openedBox=null;
+  starUsed=false;
 
-  io.emit("sync");
+  io.emit("syncState",{
+   currentTurn:students[0],
+   openedBox:null,
+   starUsed:false
+  });
+
   io.emit("turn",students[0]);
  });
 
@@ -99,9 +110,16 @@ io.on("connection",socket=>{
   if(socket.id!==hostSocket) return;
 
   currentTurnIndex++;
-  openedBox=null;
-
   if(currentTurnIndex>=students.length) return;
+
+  openedBox=null;
+  starUsed=false;
+
+  io.emit("syncState",{
+   currentTurn:students[currentTurnIndex],
+   openedBox:null,
+   starUsed:false
+  });
 
   io.emit("turn",students[currentTurnIndex]);
  });
@@ -116,7 +134,6 @@ io.on("connection",socket=>{
 
   if(socket.player.MaSV!==cur.MaSV) return;
 
-  // đã mở rồi thì cấm mở tiếp
   if(openedBox!==null) return;
 
   openedBox=index;
@@ -128,6 +145,7 @@ io.on("connection",socket=>{
    question:q.text,
    score:q.score
   });
+
  });
 
  /* ===== STAR ===== */
@@ -139,6 +157,10 @@ io.on("connection",socket=>{
   if(!cur) return;
 
   if(socket.player.MaSV!==cur.MaSV) return;
+
+  if(starUsed) return;
+
+  starUsed=true;
 
   const win=Math.random()<0.1;
 
