@@ -41,7 +41,6 @@ h1{color:#f8312f;font-size:2.5em;margin-bottom:10px}
 </div>
 
 <audio id="bgMusic" src="bg-music.mp3" loop></audio>
-<audio id="openSound" src="sound.mp3"></audio>
 <audio id="luckySound" src="lucky.mp3"></audio>
 <audio id="unluckySound" src="unlucky.mp3"></audio>
 
@@ -60,6 +59,13 @@ h1{color:#f8312f;font-size:2.5em;margin-bottom:10px}
 const socket = io("https://gift-game-v3.onrender.com");
 
 let me=null,currentTurn=null;
+let currentOpenedBox=null;
+
+/* ===== DOM ===== */
+const popup=document.getElementById("popup");
+const questionText=document.getElementById("questionText");
+const starBtn=document.getElementById("starBtn");
+const starResult=document.getElementById("starResult");
 
 /* ===== MUSIC ===== */
 const bgMusic=document.getElementById("bgMusic");
@@ -69,9 +75,11 @@ bgMusic.volume=0.3;
 function bgLow(){ if(musicEnabled) bgMusic.volume=0.09 }
 function bgNormal(){ if(musicEnabled) bgMusic.volume=0.3 }
 
-document.addEventListener("click",()=>{ if(bgMusic.paused&&musicEnabled) bgMusic.play() },{once:true});
+document.addEventListener("click",()=>{ 
+ if(bgMusic.paused && musicEnabled) bgMusic.play();
+},{once:true});
 
-/* ===== SCORE MAP ===== */
+/* ===== SCORE ===== */
 function extractScore(t){
  const m=t.match(/(\d+(?:\.\d+)?)/);
  return m?m[1]:null;
@@ -97,14 +105,18 @@ function playScoreSound(score){
 }
 
 function stopStarSounds(){
- luckySound.pause(); unluckySound.pause();
- luckySound.currentTime=0; unluckySound.currentTime=0;
+ luckySound.pause();
+ unluckySound.pause();
+ luckySound.currentTime=0;
+ unluckySound.currentTime=0;
 }
 
 /* ===== POPUP ===== */
 function showPopup(text){
+
  questionText.innerText=text;
  popup.style.display="block";
+
  starBtn.style.display="inline-block";
  starBtn.disabled=false;
  starBtn.classList.remove("gray");
@@ -126,6 +138,7 @@ function closePopup(){
 
 /* ===== STAR ===== */
 starBtn.onclick=()=>{
+
  if(me?.STT!==currentTurn?.STT) return;
 
  starBtn.disabled=true;
@@ -153,21 +166,24 @@ for(let i=0;i<6;i++){
  const b=document.createElement("div");
  b.className="box";
  b.style.backgroundImage="url(close.png)";
+
  b.onclick=()=>{
   if(me?.STT!==currentTurn?.STT) return alert("Chưa tới lượt!");
   socket.emit("chooseCell",{index:i});
  };
+
  boxes.push(b);
- boxContainer.appendChild(b);
+ document.getElementById("boxContainer").appendChild(b);
 }
 
-/* ===== SOCKET EVENTS ===== */
+/* ===== SOCKET ===== */
+
 socket.on("joinOK",st=>me=st);
 socket.on("turn",st=>currentTurn=st);
 
 socket.on("cellChosen",d=>{
- const q=questions[Math.floor(Math.random()*questions.length)];
- showPopup(q);
+ // backend phải gửi question
+ showPopup(d.question);
 });
 </script>
 
