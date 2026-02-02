@@ -167,6 +167,18 @@ io.on("connection",socket=>{
   io.emit("starResult",{win});
  });
 
+ /* ===== HOST FORCE CLOSE POPUP ===== */
+ socket.on("closePopupAll",()=>{
+
+  if(socket.id!==hostSocket) return;
+
+  openedBox=null;
+  starUsed=false;
+
+  io.emit("forceClosePopup");
+
+ });
+
 });
 
 /* ================= QUESTION BANK ================= */
