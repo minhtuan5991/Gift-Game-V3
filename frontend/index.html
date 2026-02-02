@@ -47,7 +47,6 @@ h1{color:#f8312f;font-size:2.5em;margin-bottom:10px}
 <audio id="luckySound" src="lucky.mp3"></audio>
 <audio id="unluckySound" src="unlucky.mp3"></audio>
 
- <!-- Score sounds -->
 <audio id="score5" src="score5.mp3"></audio>
 <audio id="score55" src="score55.mp3"></audio>
 <audio id="score6" src="score6.mp3"></audio>
@@ -67,6 +66,7 @@ const socket = io("https://gift-game-v3.onrender.com");
 
 let me=null;
 let currentTurn=null;
+let isHost=false;
 
 /* ================= MUSIC ================= */
 const bgMusic=document.getElementById("bgMusic");
@@ -120,16 +120,9 @@ function extractScore(text){
 }
 
 const scoreMap={
- "5":"score5",
- "5.5":"score55",
- "6":"score6",
- "6.5":"score65",
- "7":"score7",
- "7.5":"score75",
- "8":"score8",
- "8.5":"score85",
- "9":"score9",
- "9.5":"score95"
+ "5":"score5","5.5":"score55","6":"score6","6.5":"score65",
+ "7":"score7","7.5":"score75","8":"score8","8.5":"score85",
+ "9":"score9","9.5":"score95"
 };
 
 function stopScoreSounds(){
@@ -180,34 +173,6 @@ function closePopup(){
  }
 }
 
-/* ===== EFFECT ===== */
-function fireworks(){
- for(let i=0;i<30;i++){
-  const f=document.createElement("div");
-  f.className="firework";
-  f.style.background=`hsl(${Math.random()*360},100%,50%)`;
-  f.style.left="50%";
-  f.style.top="40%";
-  f.style.setProperty("--x",(Math.random()*400-200)+"px");
-  f.style.setProperty("--y",(Math.random()*300-150)+"px");
-  modalBox.appendChild(f);
-  setTimeout(()=>f.remove(),1000);
- }
-}
-
-function confettiRain(){
- for(let i=0;i<60;i++){
-  const c=document.createElement("div");
-  c.className="confetti";
-  c.style.left=Math.random()*100+"vw";
-  c.style.background=`hsl(${Math.random()*360},100%,50%)`;
-  const d=2+Math.random()*2;
-  c.style.animationDuration=d+"s";
-  document.body.appendChild(c);
-  setTimeout(()=>c.remove(),d*1000);
- }
-}
-
 /* ===== STAR ===== */
 starBtn.onclick=()=>{
  starBtn.disabled=true;
@@ -219,7 +184,6 @@ starBtn.onclick=()=>{
   if(lucky){
     starResult.innerText="😄 10 ĐIỂM-Các cụ gánh còng lưng";
     luckySound.play();
-    fireworks();confettiRain();
   }else{
     starResult.innerText="😭 5đ-Thì phải, phải gì ạ";
     starBtn.classList.add("gray");
@@ -233,28 +197,35 @@ for(let i=0;i<6;i++){
  const box=document.createElement("div");
  box.className="box";
  box.style.backgroundImage=`url(${closeImg})`;
+
  box.onclick=()=>{
-  if(currentOpenedBox&&currentOpenedBox!==box)
-    currentOpenedBox.style.backgroundImage=`url(${closeImg})`;
-  bgLow();
-  box.style.backgroundImage=`url(${openImg})`;
-  currentOpenedBox=box;
-  openSound.play();
-  setTimeout(()=>showPopup(questions[Math.floor(Math.random()*questions.length)]),100);
+
+  if(!me || !currentTurn) return;
+
+  if(me.STT!==currentTurn.STT){
+    alert("Chưa tới lượt bạn!");
+    return;
+  }
+
+  socket.emit("chooseCell",{index:i});
  };
+
  boxContainer.appendChild(box);
 }
 
 /* ================= MULTIPLAYER ================= */
 
 socket.on("joinOK",(st)=>{me=st;alert("Joined "+st.Ten);});
+
 socket.on("turn",(st)=>{
  currentTurn=st;
  document.getElementById("turn").innerText="Lượt: "+st.Ten;
 });
 
 socket.on("cellChosen",(d)=>{
+
  const i=d.index;
+ const boxes=document.querySelectorAll(".box");
 
  if(currentOpenedBox&&currentOpenedBox!==boxes[i])
    currentOpenedBox.style.backgroundImage=`url(${closeImg})`;
@@ -263,7 +234,19 @@ socket.on("cellChosen",(d)=>{
  box.style.backgroundImage=`url(${openImg})`;
  currentOpenedBox=box;
 
- showPopup(questions[Math.floor(Math.random()*questions.length)]);
+ showPopup(d.question);
+});
+
+/* ================= HOST ================= */
+
+socket.on("hostOK",()=>{
+ isHost=true;
+ alert("HOST MODE");
+});
+
+socket.on("hostFail",()=>{
+ isHost=false;
+ alert("Sai mã host");
 });
 
 /* ================= HOST / PLAYER ================= */
@@ -274,6 +257,12 @@ function hostLogin(){
 }
 
 function uploadList(){
+
+ if(!isHost){
+  alert("Bạn không phải host!");
+  return;
+ }
+
  const f=document.getElementById("listFile").files[0];
  const fd=new FormData();
  fd.append("file",f);
@@ -298,8 +287,8 @@ function join(){
 <input type="file" id="listFile">
 <button onclick="uploadList()">Upload DS</button><br>
 
-<button onclick="socket.emit('startGame')">Start</button>
-<button onclick="socket.emit('nextTurn')">Next</button>
+<button onclick="if(isHost) socket.emit('startGame'); else alert('Không phải host')">Start</button>
+<button onclick="if(isHost) socket.emit('nextTurn'); else alert('Không phải host')">Next</button>
 
 <hr>
 
