@@ -21,10 +21,6 @@ h1{color:#f8312f;font-size:2.5em;margin-bottom:10px}
 @keyframes pulse{0%{scale:1}50%{scale:1.15}100%{scale:1}}
 @keyframes spin{from{rotate:0deg}to{rotate:360deg}}
 .star-result{margin-top:15px;font-size:1.2em}
-.firework{position:absolute;width:8px;height:8px;border-radius:50%;animation:explode 1s forwards}
-@keyframes explode{to{transform:translate(var(--x),var(--y)) scale(0);opacity:0}}
-.confetti{position:fixed;top:-20px;width:10px;height:14px;opacity:.9;animation:fall linear forwards;z-index:9999}
-@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:0}}
 </style>
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
@@ -47,7 +43,7 @@ h1{color:#f8312f;font-size:2.5em;margin-bottom:10px}
 </div>
 
 <audio id="bgMusic" src="bg-music.mp3" loop></audio>
-<audio id="openSound" src="sound.mp3"></audio>
+<audio id="openSound" src="open.png"></audio>
 <audio id="luckySound" src="lucky.mp3"></audio>
 <audio id="unluckySound" src="unlucky.mp3"></audio>
 
@@ -70,7 +66,7 @@ document.addEventListener("click",()=>{if(bgMusic.paused&&musicEnabled)bgMusic.p
 
 musicToggle.onclick=()=>{
  musicEnabled=!musicEnabled;
- if(musicEnabled){bgMusic.play();bgMusic.volume=0.3;musicToggle.textContent="🔊 Nhạc: ON"}
+ if(musicEnabled){bgMusic.play();musicToggle.textContent="🔊 Nhạc: ON"}
  else{bgMusic.pause();musicToggle.textContent="🔇 Nhạc: OFF"}
 };
 
@@ -84,13 +80,11 @@ const questions=[
 ];
 
 const popup=document.getElementById("popup");
-const modalBox=document.getElementById("modalBox");
 const questionText=document.getElementById("questionText");
 const boxContainer=document.getElementById("boxContainer");
 const starBtn=document.getElementById("starBtn");
 const starResult=document.getElementById("starResult");
 
-const openSound=document.getElementById("openSound");
 const luckySound=document.getElementById("luckySound");
 const unluckySound=document.getElementById("unluckySound");
 
@@ -116,6 +110,35 @@ function closePopup(){
  }
 }
 
+/* ================= STAR ================= */
+starBtn.onclick=()=>{
+
+ if(!me || !currentTurn) return;
+
+ if(me.STT!==currentTurn.STT){
+   alert("Chưa tới lượt bạn!");
+   return;
+ }
+
+ starBtn.disabled=true;
+ starBtn.classList.add("spin");
+
+ const lucky=Math.random()>0.5;
+
+ setTimeout(()=>{
+  starBtn.classList.remove("spin");
+
+  if(lucky){
+    starResult.innerText="😄 10 ĐIỂM - Các cụ gánh còng lưng";
+    luckySound.play();
+  } else {
+    starResult.innerText="😭 5đ - Thì phải, phải gì ạ";
+    unluckySound.play();
+    starBtn.classList.add("gray");
+  }
+ },800);
+};
+
 /* ================= BOX ================= */
 const boxes=[];
 for(let i=0;i<6;i++){
@@ -125,10 +148,7 @@ for(let i=0;i<6;i++){
 
  box.onclick=()=>{
 
-  if(!me || !currentTurn){
-    alert("Chưa tới lượt!");
-    return;
-  }
+  if(!me||!currentTurn) return;
 
   if(me.STT!==currentTurn.STT){
     alert("Chưa tới lượt bạn!");
@@ -142,36 +162,32 @@ for(let i=0;i<6;i++){
  boxContainer.appendChild(box);
 }
 
-/* ================= MULTIPLAYER EVENTS ================= */
+/* ================= MULTIPLAYER ================= */
 
-socket.on("joinOK",(st)=>{me=st; alert("Joined "+st.Ten);});
-socket.on("joinFail",()=>alert("Sai mã"));
-
+socket.on("joinOK",(st)=>{me=st;alert("Joined "+st.Ten);});
 socket.on("turn",(st)=>{
  currentTurn=st;
  document.getElementById("turn").innerText="Lượt: "+st.Ten;
 });
 
 socket.on("cellChosen",(d)=>{
-
  const i=d.index;
 
- if(currentOpenedBox && currentOpenedBox!==boxes[i])
+ if(currentOpenedBox&&currentOpenedBox!==boxes[i])
    currentOpenedBox.style.backgroundImage=`url(${closeImg})`;
 
  const box=boxes[i];
  box.style.backgroundImage=`url(${openImg})`;
  currentOpenedBox=box;
 
- openSound.play();
  showPopup(questions[Math.floor(Math.random()*questions.length)]);
 });
 
 /* ================= HOST / PLAYER ================= */
 
 function hostLogin(){
- const code=document.getElementById("hostCode").value;
- socket.emit("hostJoin",code);
+ socket.emit("hostJoin",
+ document.getElementById("hostCode").value);
 }
 
 function uploadList(){
@@ -186,17 +202,17 @@ function uploadList(){
 }
 
 function join(){
- const m=document.getElementById("maSV").value;
- socket.emit("playerJoin",m);
+ socket.emit("playerJoin",
+ document.getElementById("maSV").value);
 }
 </script>
 
 <div style="position:fixed;top:10px;left:10px;background:#fff;padding:10px">
 <h3>HOST</h3>
-<input id="hostCode" placeholder="2395"/>
+<input id="hostCode" placeholder="2395">
 <button onclick="hostLogin()">Host</button><br>
 
-<input type="file" id="listFile"/>
+<input type="file" id="listFile">
 <button onclick="uploadList()">Upload DS</button><br>
 
 <button onclick="socket.emit('startGame')">Start</button>
@@ -205,7 +221,7 @@ function join(){
 <hr>
 
 <h3>PLAYER</h3>
-<input id="maSV" placeholder="MaSV"/>
+<input id="maSV" placeholder="MaSV">
 <button onclick="join()">Join</button>
 <div id="turn"></div>
 </div>
