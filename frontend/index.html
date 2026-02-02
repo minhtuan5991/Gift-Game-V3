@@ -1,103 +1,247 @@
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>🎁 Chọn Phần Quà 🎁</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<style>
+body{font-family:'Segoe UI',sans-serif;background:url('bg.jpg') no-repeat center center fixed;background-size:cover;text-align:center;padding:40px 20px}
+h1{color:#f8312f;font-size:2.5em;margin-bottom:10px}
+.music-toggle{position:fixed;top:20px;right:20px;background:#fff;border-radius:25px;padding:8px 14px;border:none;cursor:pointer;font-weight:600;box-shadow:0 4px 10px rgba(0,0,0,.2)}
+.box-container{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,140px));gap:25px;justify-content:center;margin-top:40px}
+.box{aspect-ratio:1/1;background-size:cover;border-radius:15px;cursor:pointer;transition:.3s}
+.box:hover{transform:scale(1.05);filter:brightness(1.1)}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10}
+.modal-content{background:#fff;margin:18% auto;padding:30px;border-radius:12px;width:90%;max-width:800px;font-size:2em;font-weight:700;color:#004d40;position:relative;text-align:center;overflow:hidden}
+.close-btn{position:absolute;right:20px;top:10px;font-size:24px;cursor:pointer}
+.star-btn{width:90px;height:90px;background:url('star.png') center/contain no-repeat;border:none;margin-top:20px;cursor:pointer;display:none}
+.star-btn.spin{animation:spin .8s linear}
+.star-btn.gray{filter:grayscale(100%) brightness(.7)}
+.star-result{margin-top:15px;font-size:1.2em}
+@keyframes spin{from{rotate:0deg}to{rotate:360deg}}
+</style>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+
+<body>
+
+<button id="musicToggle" class="music-toggle">🔊 Nhạc: ON</button>
+
+<h1>🎁 Chọn Phần Quà 🎁</h1>
+<div class="box-container" id="boxContainer"></div>
+
+<div id="popup" class="modal">
+ <div class="modal-content">
+  <span class="close-btn" onclick="closePopup()">&times;</span>
+  <div id="questionText"></div>
+  <button id="starBtn" class="star-btn"></button>
+  <div id="starResult" class="star-result"></div>
+ </div>
+</div>
+
+<!-- AUDIO -->
+<audio id="bgMusic" src="bg-music.mp3" loop></audio>
+<audio id="openSound" src="open.mp3"></audio>
+<audio id="luckySound" src="lucky.mp3"></audio>
+<audio id="unluckySound" src="unlucky.mp3"></audio>
+
+<audio id="score5" src="score5.mp3"></audio>
+<audio id="score55" src="score55.mp3"></audio>
+<audio id="score6" src="score6.mp3"></audio>
+<audio id="score65" src="score65.mp3"></audio>
+<audio id="score7" src="score7.mp3"></audio>
+<audio id="score75" src="score75.mp3"></audio>
+<audio id="score8" src="score8.mp3"></audio>
+<audio id="score85" src="score85.mp3"></audio>
+<audio id="score9" src="score9.mp3"></audio>
+<audio id="score95" src="score95.mp3"></audio>
+
+<footer>♥ Chúc Bạn May Mắn ♥</footer>
+
+<!-- ================= SCRIPT ================= -->
 <script>
+
 const socket = io("https://gift-game-v3.onrender.com");
 
-let me = null;
-let currentTurn = null;
+/* DOM */
+const popup=document.getElementById("popup");
+const questionText=document.getElementById("questionText");
+const starBtn=document.getElementById("starBtn");
+const starResult=document.getElementById("starResult");
+const boxContainer=document.getElementById("boxContainer");
 
-/* ================= MULTIPLAYER ================= */
+const bgMusic=document.getElementById("bgMusic");
+const musicToggle=document.getElementById("musicToggle");
 
-socket.on("joinOK",st=>{
- me = st;
- alert("Joined " + st.Ten);
-});
+const openSound=document.getElementById("openSound");
+const luckySound=document.getElementById("luckySound");
+const unluckySound=document.getElementById("unluckySound");
 
-socket.on("joinFail",()=>alert("Sai mã"));
+/* STATE */
+let me=null;
+let currentTurn=null;
+let musicEnabled=true;
+let currentOpenedBox=null;
 
-socket.on("turn",st=>{
- currentTurn = st;
- const t = document.getElementById("turn");
- if(t) t.innerText = "Lượt: " + st.Ten;
-});
+bgMusic.volume=0.3;
 
-/* ===== STAR ===== */
+/* MUSIC */
+function bgLow(){ if(musicEnabled) bgMusic.volume=0.09 }
+function bgNormal(){ if(musicEnabled) bgMusic.volume=0.3 }
+
+document.addEventListener("click",()=>{
+ if(bgMusic.paused && musicEnabled) bgMusic.play()
+},{once:true});
+
+musicToggle.onclick=()=>{
+ musicEnabled=!musicEnabled;
+ if(musicEnabled){
+  bgMusic.play();
+  musicToggle.textContent="🔊 Nhạc: ON";
+ }else{
+  bgMusic.pause();
+  musicToggle.textContent="🔇 Nhạc: OFF";
+ }
+};
+
+/* SCORE MAP */
+function extractScore(text){
+ const m=text.match(/(\d+(?:\.\d+)?)/);
+ return m?m[1]:null;
+}
+
+const scoreMap={
+ "5":"score5","5.5":"score55","6":"score6","6.5":"score65",
+ "7":"score7","7.5":"score75","8":"score8","8.5":"score85",
+ "9":"score9","9.5":"score95"
+};
+
+function stopScoreSounds(){
+ Object.values(scoreMap).forEach(id=>{
+  const a=document.getElementById(id);
+  if(a){a.pause();a.currentTime=0;}
+ });
+}
+
+function playScoreSound(score){
+ stopScoreSounds();
+ const a=document.getElementById(scoreMap[score]);
+ if(a){a.currentTime=0;a.play();}
+}
+
+function stopStarSounds(){
+ luckySound.pause(); unluckySound.pause();
+ luckySound.currentTime=0; unluckySound.currentTime=0;
+}
+
+/* POPUP */
+function showPopup(text){
+ questionText.innerText=text;
+ popup.style.display="block";
+ starBtn.style.display="inline-block";
+ starBtn.disabled=false;
+ starBtn.classList.remove("gray");
+ starResult.innerText="";
+
+ const s=extractScore(text);
+ if(s) playScoreSound(s);
+
+ bgLow();
+}
+
+function closePopup(){
+ popup.style.display="none";
+ stopScoreSounds();
+ stopStarSounds();
+ bgNormal();
+}
+
+/* STAR */
 starBtn.onclick=()=>{
-
- if(!me || !currentTurn) return alert("Chưa tới lượt!");
-
- if(me.STT !== currentTurn.STT)
-   return alert("Chưa tới lượt bạn!");
-
  starBtn.disabled=true;
  starBtn.classList.add("spin");
 
- socket.emit("spin-star");
+ setTimeout(()=>{
+  starBtn.classList.remove("spin");
+
+  const lucky=Math.random()<0.1;
+
+  stopStarSounds();
+
+  if(lucky){
+   starResult.innerText="😄 10 ĐIỂM";
+   luckySound.play();
+  }else{
+   starResult.innerText="😭 5đ";
+   unluckySound.play();
+   starBtn.classList.add("gray");
+  }
+
+ },800);
 };
 
-/* ===== BOX ===== */
+/* BOX */
 const boxes=[];
 for(let i=0;i<6;i++){
  const box=document.createElement("div");
  box.className="box";
- box.style.backgroundImage=`url(${closeImg})`;
-
- box.onclick=()=>{
-
-  if(!me || !currentTurn)
-    return alert("Chưa tới lượt!");
-
-  if(me.STT !== currentTurn.STT)
-    return alert("Chưa tới lượt bạn!");
-
-  socket.emit("open-box", i);
- };
-
+ box.style.backgroundImage="url(close.png)";
+ box.onclick=()=>socket.emit("chooseCell",{index:i});
  boxes.push(box);
  boxContainer.appendChild(box);
 }
 
-/* ===== REALTIME EVENTS ===== */
+/* SOCKET EVENTS */
 
-socket.on("box-opened",data=>{
- const { boxId, question } = data;
+socket.on("joinOK",st=>me=st);
 
- if(currentOpenedBox && currentOpenedBox!==boxes[boxId])
-   currentOpenedBox.style.backgroundImage=`url(${closeImg})`;
+socket.on("turn",st=>{
+ currentTurn=st;
+ document.getElementById("turn").innerText="Lượt: "+st.Ten;
+});
 
- const box=boxes[boxId];
- box.style.backgroundImage=`url(${openImg})`;
+socket.on("boxOpened",d=>{
+ const box=boxes[d.index];
+
+ if(currentOpenedBox && currentOpenedBox!==box)
+  currentOpenedBox.style.backgroundImage="url(close.png)";
+
  currentOpenedBox=box;
+ box.style.backgroundImage="url(open.png)";
 
  openSound.play();
- showPopup(question);
+ showPopup(d.question);
 });
 
-socket.on("star-result",data=>{
- const { lucky } = data;
-
- starBtn.classList.remove("spin");
+socket.on("starResult",d=>{
  stopStarSounds();
-
- if(lucky){
-  starResult.innerText="😄 10 ĐIỂM-Các cụ gánh còng lưng";
-  luckySound.play();
-  fireworks();confettiRain();
- }else{
-  starResult.innerText="😭 5đ-Thì phải, phải gì ạ";
-  starBtn.classList.add("gray");
-  unluckySound.play();
- }
+ if(d.win) luckySound.play();
+ else unluckySound.play();
 });
 
-/* ===== SYNC RESET ===== */
-
-socket.on("sync",()=>{
- boxes.forEach(b=>{
-  b.style.backgroundImage=`url(${closeImg})`;
- });
-
- popup.style.display="none";
- currentOpenedBox=null;
-});
 </script>
+
+<!-- HOST PLAYER PANEL -->
+<div style="position:fixed;top:10px;left:10px;background:#fff;padding:10px">
+<h3>HOST</h3>
+<input id="hostCode" placeholder="2395">
+<button onclick="socket.emit('hostJoin',hostCode.value)">Host</button><br>
+
+<input type="file" id="listFile">
+<button onclick="uploadList()">Upload DS</button><br>
+
+<button onclick="socket.emit('startGame')">Start</button>
+<button onclick="socket.emit('nextTurn')">Next</button>
+
+<hr>
+
+<h3>PLAYER</h3>
+<input id="maSV" placeholder="MaSV">
+<button onclick="socket.emit('playerJoin',maSV.value)">Join</button>
+<div id="turn"></div>
+</div>
+
+</body>
+</html>
