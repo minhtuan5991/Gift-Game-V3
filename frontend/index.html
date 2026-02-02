@@ -259,7 +259,7 @@ function uploadList(){
  min-width:320px;
 ">
 <h3>HOST</h3>
-<input id="hostCode" placeholder="Code">
+<input id="hostCode" type="password" placeholder="Code">
 <button onclick="socket.emit('hostJoin',hostCode.value)">Host</button><br>
 
 <input type="file" id="listFile">
