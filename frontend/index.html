@@ -291,7 +291,7 @@ socket.on("hostFail",()=>alert("Sai mã host"));
 function uploadList(){
   const f=document.getElementById("listFile").files[0];
   const fd=new FormData(); fd.append("file",f);
-  fetch("http://localhost:3000/upload",{method:"POST",body:fd})
+  fetch("https://gift-game-v3.onrender.com",{method:"POST",body:fd})
    .then(r=>r.json()).then(j=>alert("Uploaded "+j.count));
 }
 
