@@ -61,6 +61,7 @@ h1{color:#f8312f;font-size:2.5em;margin-bottom:10px}
 <footer>♥ Chúc Bạn May Mắn ♥</footer>
 
 <script>
+
 const socket = io("https://gift-game-v3.onrender.com");
 
 /* DOM */
@@ -187,31 +188,25 @@ for(let i=0;i<6;i++){
 
 socket.on("hostOK",()=>{
  alert("HOST MODE");
- hostPanel.style.display="block";
+ document.getElementById("hostPanel").style.display="block";
 });
+
 socket.on("hostFail",()=>alert("Sai mã host"));
-
-const hostPanel=document.getElementById("hostPanel");
-
-const playerNameDiv=document.getElementById("playerName");
 
 socket.on("joinOK",st=>{
  me=st;
- hostPanel.style.display="none";
 
- playerNameDiv.innerText=st.Ten+" ("+st.MaSV+")";
+ document.getElementById("hostPanel").style.display="none";
+
+ document.getElementById("playerName").innerText=
+   st.Ten+" ("+st.MaSV+")";
 });
+
 socket.on("joinFail",()=>alert("Sai mã"));
 
 socket.on("turn",st=>{
  currentTurn=st;
  document.getElementById("turn").innerText="Lượt: "+st.Ten;
-});
-
-socket.on("syncState",st=>{
- currentTurn=st.currentTurn;
- currentOpenedBox=null;
- closePopup();
 });
 
 socket.on("boxOpened",d=>{
@@ -255,9 +250,10 @@ function uploadList(){
   else alert("Uploaded "+j.count);
  });
 }
+
 </script>
 
-<!-- HOST PLAYER PANEL -->
+<!-- CONTROL PANEL -->
 <div id="controlPanel" style="
  position:fixed;
  bottom:40px;
@@ -290,18 +286,14 @@ function uploadList(){
 <div id="playerPanel">
  <h3>PLAYER</h3>
 
-<div id="playerName"
- style="
-  font-weight:700;
-  margin:6px 0;
-  color:#0a4;
- ">
-</div>
+ <div id="playerName"
+  style="font-weight:700;margin:6px 0;color:#0a4;">
+ </div>
 
-<input id="maSV" placeholder="MaSV">
-<button onclick="socket.emit('playerJoin',maSV.value)">Join</button>
+ <input id="maSV" placeholder="MaSV">
+ <button onclick="socket.emit('playerJoin',maSV.value)">Join</button>
 
-<div id="turn"></div>
+ <div id="turn"></div>
 </div>
 
 </div>
