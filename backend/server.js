@@ -18,11 +18,13 @@ const upload=multer({dest:"uploads/"});
 
 /* ================= STATE ================= */
 
-let HOST_CODE="2395";
+const HOST_CODE="2395";
 
 let hostSocket=null;
 let students=[];
 let currentTurnIndex=0;
+
+let openedBox=null;   // khóa 1 lượt chỉ mở 1 hộp
 
 /* ================= UPLOAD ================= */
 
@@ -39,6 +41,11 @@ app.post("/upload",upload.single("file"),(req,res)=>{
   Ten:r.Ten
  }));
 
+ currentTurnIndex=0;
+ openedBox=null;
+
+ io.emit("sync");
+
  res.json({count:students.length});
 });
 
@@ -46,6 +53,16 @@ app.post("/upload",upload.single("file"),(req,res)=>{
 
 io.on("connection",socket=>{
 
+ console.log("connect",socket.id);
+
+ socket.on("disconnect",()=>{
+  if(socket.id===hostSocket){
+   hostSocket=null;
+   console.log("HOST LEFT");
+  }
+ });
+
+ /* ===== HOST LOGIN ===== */
  socket.on("hostJoin",code=>{
   if(code===HOST_CODE){
    hostSocket=socket.id;
@@ -55,31 +72,54 @@ io.on("connection",socket=>{
   }
  });
 
+ /* ===== PLAYER JOIN ===== */
  socket.on("playerJoin",ma=>{
   const st=students.find(s=>s.MaSV===ma);
   if(!st) return socket.emit("joinFail");
+
   socket.player=st;
   socket.emit("joinOK",st);
  });
 
+ /* ===== START GAME ===== */
  socket.on("startGame",()=>{
   if(socket.id!==hostSocket) return;
+
+  if(students.length===0) return;
+
   currentTurnIndex=0;
+  openedBox=null;
+
+  io.emit("sync");
   io.emit("turn",students[0]);
  });
 
+ /* ===== NEXT TURN ===== */
  socket.on("nextTurn",()=>{
   if(socket.id!==hostSocket) return;
+
   currentTurnIndex++;
+  openedBox=null;
+
   if(currentTurnIndex>=students.length) return;
+
   io.emit("turn",students[currentTurnIndex]);
  });
 
+ /* ===== OPEN BOX ===== */
  socket.on("chooseCell",({index})=>{
+
   if(!socket.player) return;
 
   const cur=students[currentTurnIndex];
+  if(!cur) return;
+
   if(socket.player.MaSV!==cur.MaSV) return;
+
+  // đã mở rồi thì cấm mở tiếp
+  if(openedBox!==null) return;
+
+  openedBox=index;
 
   const q=randomQuestion();
 
@@ -90,8 +130,18 @@ io.on("connection",socket=>{
   });
  });
 
+ /* ===== STAR ===== */
  socket.on("spinStar",()=>{
+
+  if(!socket.player) return;
+
+  const cur=students[currentTurnIndex];
+  if(!cur) return;
+
+  if(socket.player.MaSV!==cur.MaSV) return;
+
   const win=Math.random()<0.1;
+
   io.emit("starResult",{win});
  });
 
