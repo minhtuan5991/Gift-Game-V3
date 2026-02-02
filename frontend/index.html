@@ -188,7 +188,13 @@ for(let i=0;i<6;i++){
 socket.on("hostOK",()=>alert("HOST MODE"));
 socket.on("hostFail",()=>alert("Sai mã host"));
 
-socket.on("joinOK",st=>me=st);
+socket.on("joinOK",st=>{
+ me=st;
+
+ // Ẩn bảng HOST trên máy player
+ document.querySelector("#controlPanel h3").innerText="PLAYER";
+ document.querySelector("#hostCode").parentElement.style.display="none";
+});
 socket.on("joinFail",()=>alert("Sai mã"));
 
 socket.on("turn",st=>{
