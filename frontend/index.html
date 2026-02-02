@@ -13,7 +13,7 @@ h1{color:#f8312f;font-size:2.5em;margin-bottom:10px}
 .box{aspect-ratio:1/1;background-size:cover;border-radius:15px;cursor:pointer;transition:.3s}
 .box:hover{transform:scale(1.05);filter:brightness(1.1)}
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10}
-.modal-content{background:#fff;margin:18% auto;padding:30px;border-radius:12px;width:90%;max-width:800px;font-size:2em;font-weight:700;color:#004d40;position:relative;text-align:center;overflow:hidden}
+.modal-content{background:#fff;margin:18% auto;padding:30px;border-radius:12px;width:90%;max-width:800px;font-size:2em;font-weight:700;color:#004d40;position:relative;text-align:center}
 .close-btn{position:absolute;right:20px;top:10px;font-size:24px;cursor:pointer}
 .star-btn{width:90px;height:90px;background:url('star.png') center/contain no-repeat;border:none;margin-top:20px;cursor:pointer;display:none}
 .star-btn.spin{animation:spin .8s linear}
@@ -60,9 +60,7 @@ h1{color:#f8312f;font-size:2.5em;margin-bottom:10px}
 
 <footer>♥ Chúc Bạn May Mắn ♥</footer>
 
-<!-- ================= SCRIPT ================= -->
 <script>
-
 const socket = io("https://gift-game-v3.onrender.com");
 
 /* DOM */
@@ -82,8 +80,8 @@ const unluckySound=document.getElementById("unluckySound");
 /* STATE */
 let me=null;
 let currentTurn=null;
-let musicEnabled=true;
 let currentOpenedBox=null;
+let musicEnabled=true;
 
 bgMusic.volume=0.3;
 
@@ -106,7 +104,7 @@ musicToggle.onclick=()=>{
  }
 };
 
-/* SCORE MAP */
+/* SCORE */
 function extractScore(text){
  const m=text.match(/(\d+(?:\.\d+)?)/);
  return m?m[1]:null;
@@ -160,26 +158,13 @@ function closePopup(){
 
 /* STAR */
 starBtn.onclick=()=>{
+ if(!me || !currentTurn) return;
+ if(me.MaSV!==currentTurn.MaSV) return;
+
  starBtn.disabled=true;
  starBtn.classList.add("spin");
 
- setTimeout(()=>{
-  starBtn.classList.remove("spin");
-
-  const lucky=Math.random()<0.1;
-
-  stopStarSounds();
-
-  if(lucky){
-   starResult.innerText="😄 10 ĐIỂM";
-   luckySound.play();
-  }else{
-   starResult.innerText="😭 5đ";
-   unluckySound.play();
-   starBtn.classList.add("gray");
-  }
-
- },800);
+ socket.emit("spinStar");
 };
 
 /* BOX */
@@ -188,18 +173,33 @@ for(let i=0;i<6;i++){
  const box=document.createElement("div");
  box.className="box";
  box.style.backgroundImage="url(close.png)";
- box.onclick=()=>socket.emit("chooseCell",{index:i});
+ box.onclick=()=>{
+  if(!me || !currentTurn) return;
+  if(me.MaSV!==currentTurn.MaSV) return;
+
+  socket.emit("chooseCell",{index:i});
+ };
  boxes.push(box);
  boxContainer.appendChild(box);
 }
 
 /* SOCKET EVENTS */
 
+socket.on("hostOK",()=>alert("HOST MODE"));
+socket.on("hostFail",()=>alert("Sai mã host"));
+
 socket.on("joinOK",st=>me=st);
+socket.on("joinFail",()=>alert("Sai mã"));
 
 socket.on("turn",st=>{
  currentTurn=st;
  document.getElementById("turn").innerText="Lượt: "+st.Ten;
+});
+
+socket.on("syncState",st=>{
+ currentTurn=st.currentTurn;
+ currentOpenedBox=null;
+ closePopup();
 });
 
 socket.on("boxOpened",d=>{
@@ -216,11 +216,33 @@ socket.on("boxOpened",d=>{
 });
 
 socket.on("starResult",d=>{
+ starBtn.classList.remove("spin");
  stopStarSounds();
- if(d.win) luckySound.play();
- else unluckySound.play();
+
+ if(d.win){
+  starResult.innerText="😄 10 ĐIỂM";
+  luckySound.play();
+ }else{
+  starResult.innerText="😭 5đ";
+  unluckySound.play();
+  starBtn.classList.add("gray");
+ }
 });
 
+/* HOST UPLOAD */
+function uploadList(){
+ const f=document.getElementById("listFile").files[0];
+ const fd=new FormData();
+ fd.append("file",f);
+
+ fetch("https://gift-game-v3.onrender.com/upload",{
+  method:"POST",
+  body:fd
+ }).then(r=>r.json()).then(j=>{
+  if(j.err) alert(j.err);
+  else alert("Uploaded "+j.count);
+ });
+}
 </script>
 
 <!-- HOST PLAYER PANEL -->
