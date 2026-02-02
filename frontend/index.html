@@ -105,6 +105,32 @@ musicToggle.onclick=()=>{
  }
 };
 
+/* POPUP RESET LOCAL */
+function resetPopupLocal(){
+
+ popup.style.display="none";
+
+ stopScoreSounds();
+ stopStarSounds();
+ bgNormal();
+
+ currentOpenedBox=null;
+
+ boxes.forEach(b=>{
+  b.style.backgroundImage="url(close.png)";
+ });
+}
+
+/* CLOSE POPUP */
+function closePopup(){
+
+ // nếu đang là host → báo server
+ if(document.getElementById("hostPanel").style.display!=="none"){
+  socket.emit("closePopupAll");
+ }
+
+}
+
 /* SCORE */
 function extractScore(text){
  const m=text.match(/(\d+(?:\.\d+)?)/);
@@ -148,13 +174,6 @@ function showPopup(text){
  if(s) playScoreSound(s);
 
  bgLow();
-}
-
-function closePopup(){
- popup.style.display="none";
- stopScoreSounds();
- stopStarSounds();
- bgNormal();
 }
 
 /* STAR */
@@ -212,9 +231,6 @@ socket.on("turn",st=>{
 socket.on("boxOpened",d=>{
  const box=boxes[d.index];
 
- if(currentOpenedBox && currentOpenedBox!==box)
-  currentOpenedBox.style.backgroundImage="url(close.png)";
-
  currentOpenedBox=box;
  box.style.backgroundImage="url(open.png)";
 
@@ -234,6 +250,11 @@ socket.on("starResult",d=>{
   unluckySound.play();
   starBtn.classList.add("gray");
  }
+});
+
+/* SERVER FORCE CLOSE */
+socket.on("forceClosePopup",()=>{
+ resetPopupLocal();
 });
 
 /* HOST UPLOAD */
