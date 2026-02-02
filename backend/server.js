@@ -172,16 +172,16 @@ io.on("connection",socket=>{
 /* ================= QUESTION BANK ================= */
 
 const questions=[
- {text:"5đ-Còn gì để mất đâu",score:"5"},
- {text:"5.5đ-Nay chưa thắp hương à",score:"5.5"},
- {text:"6đ-Cũng đáng thử",score:"6"},
- {text:"6.5đ-Có tài rồi",score:"6.5"},
- {text:"7đ-Khá quá",score:"7"},
- {text:"7.5đ-Thử tiếp",score:"7.5"},
- {text:"8đ-Cao đấy",score:"8"},
- {text:"8.5đ-Chọn sao",score:"8.5"},
- {text:"9đ-Hương khói đầy",score:"9"},
- {text:"9.5đ-Khỏi làm",score:"9.5"},
+ {text:"5đ-Còn gì để mất đâu, liều ăn nhiều thôi nào😇",score:"5"},
+ {text:"5.5đ-Nay chưa thắp hương à😘",score:"5.5"},
+ {text:"6đ-Cũng đáng thử ngôi sao may mắn đấy🤔",score:"6"},
+ {text:"6.5đ-Có tài rồi bấm ngôi sao xem có xỉu không nào🥰",score:"6.5"},
+ {text:"7đ-Khá quá nhỉ, chắc là thôi chứ ngôi sao gì nữa😘",score:"7"},
+ {text:"7.5đ-Hay là thử xem còn may được hơn nữa không😘",score:"7.5"},
+ {text:"8đ-Cao đấy, nhưng mà chưa Tày đâu😂",score:"8"},
+ {text:"8.5đ-Chọn Ngôi sao được ăn cả ngã nằm im😘",score:"8.5"},
+ {text:"9đ-Nay chắc hương khói đầy đủ phải không😂",score:"9"},
+ {text:"9.5đ-Thầy Huấn sai rồi, không làm mà vẫn có ăn💖",score:"9.5"},
 ];
 
 function randomQuestion(){
