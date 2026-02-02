@@ -1,22 +1,230 @@
-<div id="controlPanel">
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>🎁 Chọn Phần Quà 🎁</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <div class="controlBox">
-    <h3>HOST</h3>
-    <input id="hostCode" placeholder="2395">
-    <button onclick="hostLogin()">Host</button><br>
+<style>
+body{font-family:'Segoe UI',sans-serif;background:url('bg.jpg') no-repeat center center fixed;background-size:cover;text-align:center;padding:40px 20px}
+h1{color:#f8312f;font-size:2.5em;margin-bottom:10px}
+.music-toggle{position:fixed;top:20px;right:20px;background:#fff;border-radius:25px;padding:8px 14px;border:none;cursor:pointer;font-weight:600;box-shadow:0 4px 10px rgba(0,0,0,.2)}
+.box-container{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,140px));gap:25px;justify-content:center;margin-top:40px}
+.box{aspect-ratio:1/1;background-size:cover;border-radius:15px;cursor:pointer;transition:.3s}
+.box:hover{transform:scale(1.05);filter:brightness(1.1)}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10}
+.modal-content{background:#fff;margin:18% auto;padding:30px;border-radius:12px;width:90%;max-width:800px;font-size:2em;font-weight:700;color:#004d40;position:relative;text-align:center;overflow:hidden}
+.close-btn{position:absolute;right:20px;top:10px;font-size:24px;cursor:pointer}
+.star-btn{width:90px;height:90px;background:url('star.png') center/contain no-repeat;border:none;margin-top:20px;cursor:pointer;display:none;animation:pulse 1.5s infinite}
+.star-btn.spin{animation:spin .8s linear}
+.star-btn.gray{filter:grayscale(100%) brightness(.7)}
+@keyframes pulse{0%{scale:1}50%{scale:1.15}100%{scale:1}}
+@keyframes spin{from{rotate:0deg}to{rotate:360deg}}
+.star-result{margin-top:15px;font-size:1.2em}
+</style>
 
-    <input type="file" id="listFile">
-    <button onclick="uploadList()">Upload DS</button><br>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
 
-    <button onclick="socket.emit('startGame')">Start</button>
-    <button onclick="socket.emit('nextTurn')">Next</button>
-  </div>
+<body>
 
-  <div class="controlBox">
-    <h3>PLAYER</h3>
-    <input id="maSV" placeholder="MaSV">
-    <button onclick="join()">Join</button>
-    <div id="turn"></div>
-  </div>
+<button id="musicToggle" class="music-toggle">🔊 Nhạc: ON</button>
 
+<h1>🎁 Chọn Phần Quà 🎁</h1>
+<div class="box-container" id="boxContainer"></div>
+
+<div id="popup" class="modal">
+<div class="modal-content" id="modalBox">
+<span class="close-btn" onclick="closePopup()">&times;</span>
+<div id="questionText"></div>
+<button id="starBtn" class="star-btn"></button>
+<div id="starResult" class="star-result"></div>
 </div>
+</div>
+
+<audio id="bgMusic" src="bg-music.mp3" loop></audio>
+<audio id="openSound" src="open.png"></audio>
+<audio id="luckySound" src="lucky.mp3"></audio>
+<audio id="unluckySound" src="unlucky.mp3"></audio>
+
+<footer>♥ Chúc Bạn May Mắn ♥</footer>
+
+<script>
+/* ================= SOCKET ================= */
+const socket = io("https://gift-game-v3.onrender.com");
+
+let me=null;
+let currentTurn=null;
+
+/* ================= MUSIC ================= */
+const bgMusic=document.getElementById("bgMusic");
+const musicToggle=document.getElementById("musicToggle");
+let musicEnabled=true;
+bgMusic.volume=0.3;
+
+document.addEventListener("click",()=>{if(bgMusic.paused&&musicEnabled)bgMusic.play()},{once:true});
+
+musicToggle.onclick=()=>{
+ musicEnabled=!musicEnabled;
+ if(musicEnabled){bgMusic.play();musicToggle.textContent="🔊 Nhạc: ON"}
+ else{bgMusic.pause();musicToggle.textContent="🔇 Nhạc: OFF"}
+};
+
+/* ================= QUESTIONS ================= */
+const questions=[
+"5đ-Còn gì để mất đâu, liều ăn nhiều thôi nào😇",
+"6đ-Cũng đáng thử ngôi sao may mắn đấy🤔",
+"7đ-Khá quá nhỉ, chắc là thôi chứ ngôi sao gì nữa😘",
+"8đ-Cao đấy, nhưng mà chưa Tày đâu😂",
+"9đ-Nay chắc hương khói đầy đủ phải không😂"
+];
+
+const popup=document.getElementById("popup");
+const questionText=document.getElementById("questionText");
+const boxContainer=document.getElementById("boxContainer");
+const starBtn=document.getElementById("starBtn");
+const starResult=document.getElementById("starResult");
+
+const luckySound=document.getElementById("luckySound");
+const unluckySound=document.getElementById("unluckySound");
+
+const closeImg="close.png";
+const openImg="open.png";
+let currentOpenedBox=null;
+
+/* ================= POPUP ================= */
+function showPopup(text){
+ questionText.innerText=text;
+ popup.style.display="block";
+ starBtn.style.display="inline-block";
+ starBtn.disabled=false;
+ starBtn.classList.remove("gray");
+ starResult.innerText="";
+}
+
+function closePopup(){
+ popup.style.display="none";
+ if(currentOpenedBox){
+  currentOpenedBox.style.backgroundImage=`url(${closeImg})`;
+  currentOpenedBox=null;
+ }
+}
+
+/* ================= STAR ================= */
+starBtn.onclick=()=>{
+
+ if(!me || !currentTurn) return;
+
+ if(me.STT!==currentTurn.STT){
+   alert("Chưa tới lượt bạn!");
+   return;
+ }
+
+ starBtn.disabled=true;
+ starBtn.classList.add("spin");
+
+ const lucky=Math.random()>0.5;
+
+ setTimeout(()=>{
+  starBtn.classList.remove("spin");
+
+  if(lucky){
+    starResult.innerText="😄 10 ĐIỂM - Các cụ gánh còng lưng";
+    luckySound.play();
+  } else {
+    starResult.innerText="😭 5đ - Thì phải, phải gì ạ";
+    unluckySound.play();
+    starBtn.classList.add("gray");
+  }
+ },800);
+};
+
+/* ================= BOX ================= */
+const boxes=[];
+for(let i=0;i<6;i++){
+ const box=document.createElement("div");
+ box.className="box";
+ box.style.backgroundImage=`url(${closeImg})`;
+
+ box.onclick=()=>{
+
+  if(!me||!currentTurn) return;
+
+  if(me.STT!==currentTurn.STT){
+    alert("Chưa tới lượt bạn!");
+    return;
+  }
+
+  socket.emit("chooseCell",{index:i});
+ };
+
+ boxes.push(box);
+ boxContainer.appendChild(box);
+}
+
+/* ================= MULTIPLAYER ================= */
+
+socket.on("joinOK",(st)=>{me=st;alert("Joined "+st.Ten);});
+socket.on("turn",(st)=>{
+ currentTurn=st;
+ document.getElementById("turn").innerText="Lượt: "+st.Ten;
+});
+
+socket.on("cellChosen",(d)=>{
+ const i=d.index;
+
+ if(currentOpenedBox&&currentOpenedBox!==boxes[i])
+   currentOpenedBox.style.backgroundImage=`url(${closeImg})`;
+
+ const box=boxes[i];
+ box.style.backgroundImage=`url(${openImg})`;
+ currentOpenedBox=box;
+
+ showPopup(questions[Math.floor(Math.random()*questions.length)]);
+});
+
+/* ================= HOST / PLAYER ================= */
+
+function hostLogin(){
+ socket.emit("hostJoin",
+ document.getElementById("hostCode").value);
+}
+
+function uploadList(){
+ const f=document.getElementById("listFile").files[0];
+ const fd=new FormData();
+ fd.append("file",f);
+
+ fetch("https://gift-game-v3.onrender.com/upload",{
+  method:"POST",
+  body:fd
+ }).then(r=>r.json()).then(j=>alert("Uploaded "+j.count));
+}
+
+function join(){
+ socket.emit("playerJoin",
+ document.getElementById("maSV").value);
+}
+</script>
+
+<div style="position:fixed;top:10px;left:10px;background:#fff;padding:10px">
+<h3>HOST</h3>
+<input id="hostCode" placeholder="2395">
+<button onclick="hostLogin()">Host</button><br>
+
+<input type="file" id="listFile">
+<button onclick="uploadList()">Upload DS</button><br>
+
+<button onclick="socket.emit('startGame')">Start</button>
+<button onclick="socket.emit('nextTurn')">Next</button>
+
+<hr>
+
+<h3>PLAYER</h3>
+<input id="maSV" placeholder="MaSV">
+<button onclick="join()">Join</button>
+<div id="turn"></div>
+</div>
+
+</body>
+</html>
