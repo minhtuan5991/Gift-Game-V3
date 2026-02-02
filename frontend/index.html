@@ -185,15 +185,17 @@ for(let i=0;i<6;i++){
 
 /* SOCKET EVENTS */
 
-socket.on("hostOK",()=>alert("HOST MODE"));
+socket.on("hostOK",()=>{
+ alert("HOST MODE");
+ hostPanel.style.display="block";
+});
 socket.on("hostFail",()=>alert("Sai mã host"));
+
+const hostPanel=document.getElementById("hostPanel");
 
 socket.on("joinOK",st=>{
  me=st;
-
- // Ẩn bảng HOST trên máy player
- document.querySelector("#controlPanel h3").innerText="PLAYER";
- document.querySelector("#hostCode").parentElement.style.display="none";
+ hostPanel.style.display="none";
 });
 socket.on("joinFail",()=>alert("Sai mã"));
 
@@ -264,22 +266,30 @@ function uploadList(){
  z-index:5;
  min-width:320px;
 ">
-<h3>HOST</h3>
-<input id="hostCode" type="password" placeholder="Code">
-<button onclick="socket.emit('hostJoin',hostCode.value)">Host</button><br>
 
-<input type="file" id="listFile">
-<button onclick="uploadList()">Upload DS</button><br>
+<!-- HOST -->
+<div id="hostPanel">
+ <h3>HOST</h3>
+ <input id="hostCode" type="password" placeholder="Code">
+ <button onclick="socket.emit('hostJoin',hostCode.value)">Host</button><br>
 
-<button onclick="socket.emit('startGame')">Start</button>
-<button onclick="socket.emit('nextTurn')">Next</button>
+ <input type="file" id="listFile">
+ <button onclick="uploadList()">Upload DS</button><br>
 
-<hr>
+ <button onclick="socket.emit('startGame')">Start</button>
+ <button onclick="socket.emit('nextTurn')">Next</button>
 
-<h3>PLAYER</h3>
-<input id="maSV" placeholder="MaSV">
-<button onclick="socket.emit('playerJoin',maSV.value)">Join</button>
-<div id="turn"></div>
+ <hr>
+</div>
+
+<!-- PLAYER -->
+<div id="playerPanel">
+ <h3>PLAYER</h3>
+ <input id="maSV" placeholder="MaSV">
+ <button onclick="socket.emit('playerJoin',maSV.value)">Join</button>
+ <div id="turn"></div>
+</div>
+
 </div>
 
 </body>
